@@ -1,0 +1,10 @@
+[project]
+name = "flex-support-cli"
+version = "0.1.0"
+dependencies = [
+    "twilio>=9.0.0"
+]
+
+[project.scripts]
+flex-support-cli = "flex_support_cli.cli:main"
+
