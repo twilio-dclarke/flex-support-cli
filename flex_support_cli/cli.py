@@ -1,79 +1,130 @@
 #!/usr/bin/env python3
 import os
 import sys
-import time
 import argparse
-from flex_support_cli.config import load_config, save_profile
+from flex_support_cli.config import load_config, save_profile, list_profiles
 from flex_support_cli.clients import get_twilio_client
 from flex_support_cli.io import create_report
 from flex_support_cli.reports.taskrouter import taskrouter_queues, taskrouter_workers
-from datetime import datetime, timedelta, timezone
 
-cfg = load_config()
 
-def build_parser() -> argparse.ArgumentParser:
+def taskrouter_command(args):
+    """Handle TaskRouter report generation."""
+    workspace_sid = args.workspace_sid or args.cfg.workspace_sid
+    username = args.cfg.username or 'token'
+    password = args.cfg.password or args.token
+
+    if not workspace_sid:
+        print("Error: Workspace SID is required for TaskRouter operations.")
+        sys.exit(1)
+    
+    # Create Twilio client based on provided credentials
+    if username == 'token':
+        client = get_twilio_client(username, password=password)
+    elif username and password:
+        client = get_twilio_client(username=username, password=password)
+    else:
+        print("Error: You must provide either a token or username/password.")
+        sys.exit(1)
+
+    if args.tr_queues and username == 'token':
+        print("Support token not permitted for this operation")
+        sys.exit(1)
+    elif args.tr_queues:
+        queues = taskrouter_queues(client=client, workspace_sid=workspace_sid)
+        file = create_report("queue", workspace_sid, queues)
+        print(f"Queue report saved to {file}")
+    elif args.tr_workers:
+        workers = taskrouter_workers(client=client, workspace_sid=workspace_sid)
+        file = create_report("worker", workspace_sid, workers)
+        print(f"Worker report saved to {file}")
+    else:
+        print("No valid TaskRouter command provided.")
+
+def profile_command(args):
+    """Handle profile management commands."""
+    if args.create_profile:
+        create_profile()
+    elif args.list_profiles:
+        profiles = list_profiles()
+        print("Available profiles:")
+        for profile in profiles:
+            print(f"- {profile}")
+    else:
+        print("No valid profile command provided.")
+
+def build_global_parser() -> argparse.ArgumentParser:
+    """
+    Parses only global options. We’ll run this first with parse_known_args().
+    """
+    g = argparse.ArgumentParser(add_help=False)
+    g.add_argument("--profile", default="default", help="Config profile")
+    g.add_argument(
+        "--token",
+        help="Optional runtime token override (e.g., TWILIO_AUTH_TOKEN or API Secret).",
+    )
+    return g
+
+def build_parser(parent: argparse.ArgumentParser) -> argparse.ArgumentParser:
+
     p = argparse.ArgumentParser(
         prog="flex-support-cli",
         description="Flex Support CLI"
     )
-    p.add_argument(
-        "-o", "--output",
-        default="task_queues.csv",
-        help="Output CSV path (default: task_queues.csv)"
-    )
-    p.add_argument(
-        "--username",
-        help="Twilio Account SID (overrides TWILIO_ACCOUNT_SID)."
-    )
-    p.add_argument(
-        "--password",
-        help="Twilio Auth Token (overrides TWILIO_AUTH_TOKEN)."
-    )
-    p.add_argument(
-        "--workspace-sid",
-        help="TaskRouter Workspace SID (overrides WORKSPACE_SID)."
-    )
-    p.add_argument(
-        "-q", "--quiet",
-        action="store_true",
-        help="Suppress non-error output."
-    )
-    p.add_argument(
-        "--version",
-        action="version",
-        version="taskrouter-exporter 0.1.0"
-    )
-    p.add_argument(
-        "--token",
-        help="Support Token"
-    )
-    p.add_argument(
-        "--tr-queues", 
-        help="Generate TaskRouter queues report", 
-        action="store_true"
-    )
-    p.add_argument(
-        "--tr-workers", 
-        help="Generate TaskRouter worker report", 
-        action="store_true"
-    )
-    p.add_argument(
-        "--months", 
-        type=int, 
-        default=6, 
-        help="Inactivity window in months (default: 6)"
-    )
-    p.add_argument(
-        "--page-size", 
-        type=int, 
-        default=50,
-          help="Page size for listing workers/events (default: 50)"
-        )
-    p.add_argument(
+    
+    sp = p.add_subparsers(dest="command", required=True)
+
+    profile_parser = sp.add_parser("profile", parents=[parent], help="Manage profiles")
+    profile_parser.add_argument(
         "--create-profile",
         action="store_true",
         help="Create a new profile interactively"
     )
+    profile_parser.add_argument(
+        "--list-profiles",
+        action="store_true",
+        help="Lists all profiles"
+    )
+
+
+    tr_parser = sp.add_parser("taskrouter", parents=[parent], help="TaskRouter reports")
+    tr_parser.add_argument(
+        "-w", "--workspace-sid",
+        help="TaskRouter Workspace SID (default: from config)"
+    )
+
+    tr_parser.add_argument(
+        "--tr-queues", 
+        help="Generate TaskRouter queues report", 
+        action="store_true"
+    )
+    tr_parser.add_argument(
+        "--tr-workers", 
+        help="Generate TaskRouter worker report", 
+        action="store_true"
+    )
+
+    parent.add_argument(
+        "-o", "--output",
+        default="task_queues.csv",
+        help="Output CSV path (default: task_queues.csv)"
+    )
+
+    parent.add_argument(
+        "-q", "--quiet",
+        action="store_true",
+        help="Suppress non-error output."
+    )
+    parent.add_argument(
+        "--version",
+        action="version",
+        version="taskrouter-exporter 0.1.0"
+    )
+   
+
+    profile_parser.set_defaults(func=profile_command)
+    tr_parser.set_defaults(func=taskrouter_command)
+    
     return p
 
 def create_profile():
@@ -86,34 +137,22 @@ def create_profile():
     save_profile(name, USERNAME=username, PASSWORD=password, WORKSPACE_SID=workspace_sid)
 
 def main():
-    parser = build_parser()
+
+    gparser = build_global_parser()
+    gargs, unknown = gparser.parse_known_args()
+    
+    if gargs.profile and gargs.profile != "default" :
+        cfg = load_config(profile=gargs.profile)
+    elif gargs.profile == "default" and gargs.token == None:
+        print("Using default profile requires a support token")
+    else:    
+        cfg = load_config()
+
+    parser = build_parser(gparser)
     args = parser.parse_args()
+    args.cfg = cfg
 
-    if args.create_profile:
-        create_profile()
-        sys.exit(0)
-
-    if args.token:
-        client = get_twilio_client('token', password=args.token)
-    elif args.username and args.password:
-        client = get_twilio_client(username=args.username, password=args.password)
-    else:
-        parser.error("Error: You must provide either a token or username/password.")
-        sys.exit(1)  
-
-    if args.quiet:
-        sys.stdout = open(os.devnull, 'w')
-
-    if args.tr_queues:
-        queues = taskrouter_queues(client=client, workspace_sid=args.workspace_sid)
-        file = create_report("queue", args.workspace_sid, queues)
-        print(f"Worker report saved to {file}")
-    elif args.tr_workers:
-        workers = taskrouter_workers(client=client, workspace_sid=args.workspace_sid)
-        file = create_report("worker", args.workspace_sid, workers)
-        print(f"Worker report saved to {file}")
-
-
+    return args.func(args)
 
 if __name__ == "__main__":
     main()

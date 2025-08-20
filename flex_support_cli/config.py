@@ -65,33 +65,32 @@ def load_config(profile: str = DEFAULT_PROFILE) -> Config:
     
     profiles = _read_profiles()
     merged = {}
-    
-    if profile != DEFAULT_PROFILE and profile not in profiles:
-        raise ConfigError(f"Profile '{profile}' not found in {CONFIG_FILE}", 1)
-    
+
     if profile == DEFAULT_PROFILE:
         cfg = Config(
             username = "token"
         )
         return cfg
     
+    if profile not in profiles:
+        raise ConfigError(f"Profile '{profile}' not found in {CONFIG_FILE}", 1)
+
     profile_data = profiles.get(profile, {})
     merged.update(profile_data)
 
 
-    if cfg.auth_mode() == "username/password":
-        cfg = Config(
-            username=profile_data.get("USERNAME"),
-            password=profile_data.get("PASSWORD"),
-            workspace_sid=profile_data.get("WORKSPACE_SID", None),
-            timeout_seconds=profile_data.get("TIMEOUT", 30),
-            timezone=profile_data.get("TIMEZONE", "UTC"),
-            profile=profile
-        )
-        cfg.set_guest_mode(False)
-        return cfg
-    else:
-        return cfg
+    cfg = Config(
+        username=profile_data.get("USERNAME"),
+        password=profile_data.get("PASSWORD"),
+        workspace_sid=profile_data.get("WORKSPACE_SID", None),
+        timeout_seconds=profile_data.get("TIMEOUT", 30),
+        timezone=profile_data.get("TIMEZONE", "UTC"),
+        profile=profile
+    )
+    cfg.set_guest_mode(False)
+
+    return cfg
+
 
 
 def save_profile(
