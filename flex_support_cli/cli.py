@@ -3,9 +3,13 @@ import os
 import sys
 import time
 import argparse
+from flex_support_cli.config import load_config, save_profile
 from flex_support_cli.clients import get_twilio_client
+from flex_support_cli.io import create_report
 from flex_support_cli.reports.taskrouter import taskrouter_queues, taskrouter_workers
 from datetime import datetime, timedelta, timezone
+
+cfg = load_config()
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
@@ -65,13 +69,29 @@ def build_parser() -> argparse.ArgumentParser:
         default=50,
           help="Page size for listing workers/events (default: 50)"
         )
+    p.add_argument(
+        "--create-profile",
+        action="store_true",
+        help="Create a new profile interactively"
+    )
     return p
 
-
+def create_profile():
+    """Create a new profile with user input."""
+    print("Creating a new profile...")
+    name = input("Enter profile name: ")
+    username = input("Enter Twilio Account SID: ")
+    password = input("Enter Twilio Auth Token: ")
+    workspace_sid = input("Enter TaskRouter Workspace SID: ")
+    save_profile(name, USERNAME=username, PASSWORD=password, WORKSPACE_SID=workspace_sid)
 
 def main():
     parser = build_parser()
     args = parser.parse_args()
+
+    if args.create_profile:
+        create_profile()
+        sys.exit(0)
 
     if args.token:
         client = get_twilio_client('token', password=args.token)
@@ -85,9 +105,13 @@ def main():
         sys.stdout = open(os.devnull, 'w')
 
     if args.tr_queues:
-        taskrouter_queues(client=client, workspace_sid=args.workspace_sid)
+        queues = taskrouter_queues(client=client, workspace_sid=args.workspace_sid)
+        file = create_report("queue", args.workspace_sid, queues)
+        print(f"Worker report saved to {file}")
     elif args.tr_workers:
-        taskrouter_workers(client=client, workspace_sid=args.workspace_sid)
+        workers = taskrouter_workers(client=client, workspace_sid=args.workspace_sid)
+        file = create_report("worker", args.workspace_sid, workers)
+        print(f"Worker report saved to {file}")
 
 
 

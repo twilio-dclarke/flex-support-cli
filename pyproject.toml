@@ -2,7 +2,8 @@
 name = "flex-support-cli"
 version = "0.1.0"
 dependencies = [
-    "twilio>=9.0.0"
+    "twilio>=9.0.0",
+    "python-dotenv>=1.1.1"
 ]
 
 [project.scripts]
