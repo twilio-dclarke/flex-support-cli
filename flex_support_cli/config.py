@@ -25,6 +25,7 @@ class Config:
     username: Optional[str] = None
     password: Optional[str] = None
     workspace_sid: Optional[str] = None
+    conv_service_sid: Optional[str] = None
     guest_mode: Optional[bool] = True
     timeout_seconds: Optional[int] = 30
     timezone: Optional[str] = "UTC"
@@ -32,13 +33,6 @@ class Config:
     workers_report: Optional[str] = "WORKERS_REPORT"
     queue_report: Optional[str] = "QUEUE_REPORT"
     profile: str = DEFAULT_PROFILE
-
-    def auth_mode(self) -> str:
-        """Determine the authentication mode based on provided credentials."""
-        if self.username and self.password:
-            return "username/password"
-        else:
-            return "token"
     
     def set_guest_mode(self, guest: bool):
         """Set the guest mode flag."""
@@ -83,6 +77,7 @@ def load_config(profile: str = DEFAULT_PROFILE) -> Config:
         username=profile_data.get("USERNAME"),
         password=profile_data.get("PASSWORD"),
         workspace_sid=profile_data.get("WORKSPACE_SID", None),
+        conv_service_sid=profile_data.get("CONV_SERVICE_SID", None),
         timeout_seconds=profile_data.get("TIMEOUT", 30),
         timezone=profile_data.get("TIMEZONE", "UTC"),
         profile=profile
