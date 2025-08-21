@@ -37,6 +37,20 @@ def create_report(reportType, sid, data):
                         item.friendly_name,
                         item.target_workers
                     ])
+            elif(reportType == "conversation_addresses"):
+                writer.writerow([
+                    "Date Created",
+                    "Friendly Name", 
+                    "Address SID", 
+                    "Address"                    
+                ])
+                for item in data:
+                    writer.writerow([
+                        item.date_created,
+                        item.friendly_name,
+                        item.sid,
+                        item.address
+                    ])
             else:
                  print("Still Implementing this report type")
             

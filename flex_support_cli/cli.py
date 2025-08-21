@@ -1,12 +1,32 @@
 #!/usr/bin/env python3
 import sys
 import argparse
+import getpass
 from flex_support_cli.config import load_config, save_profile, list_profiles
 from flex_support_cli.clients import get_twilio_client
 from flex_support_cli.io import create_report
 from flex_support_cli.reports.taskrouter import taskrouter_queues, taskrouter_workers
+from flex_support_cli.reports.conversations import get_conv_default_service, fetch_conv_addresses
 
 
+def conversations_command(args):
+    """Handle Conversations report generation."""
+    username = args.cfg.username or 'token'
+    password = args.cfg.password or args.token
+    
+    # Create Twilio client based on provided credentials
+    if username and password:
+        client = get_twilio_client(username=username, password=password)
+    else:
+        print("Error: You must provide either a token or username/password.")
+        sys.exit(1)
+    
+    if args.conv_addresses:
+        addresses = fetch_conv_addresses(client)
+        file = create_report("conversation_addresses", args.cfg.profile, addresses)
+        print(f"Conversation addresses report saved to {file}")
+    else:
+        print("No valid Conversations command provided.")   
 def taskrouter_command(args):
     """Handle TaskRouter report generation."""
     workspace_sid = args.workspace_sid or args.cfg.workspace_sid
@@ -18,9 +38,7 @@ def taskrouter_command(args):
         sys.exit(1)
     
     # Create Twilio client based on provided credentials
-    if username == 'token':
-        client = get_twilio_client(username, password=password)
-    elif username and password:
+    if username and password:
         client = get_twilio_client(username=username, password=password)
     else:
         print("Error: You must provide either a token or username/password.")
@@ -110,6 +128,16 @@ def build_parser(parent: argparse.ArgumentParser) -> argparse.ArgumentParser:
         action="store_true"
     )
 
+    """Conversations report generation commands"""
+    conv_parser = sp.add_parser("conversations", parents=[parent], help="Conversations reports")
+    conv_parser.add_argument(
+        "--conv-addresses", 
+        help="Fetch conversation addresses", 
+        action="store_true"
+    )
+
+    conv_parser.set_defaults(func=conversations_command)
+
     profile_parser.set_defaults(func=profile_command)
     tr_parser.set_defaults(func=taskrouter_command)
     
@@ -120,9 +148,22 @@ def create_profile():
     print("Creating a new profile...")
     name = input("Enter profile name: ")
     username = input("Enter Twilio Account SID: ")
-    password = input("Enter Twilio Auth Token: ")
+    password = getpass.getpass("Enter Twilio Auth Token: ")
+    print(len(username))
+    if not username or not password:
+        print("Username and password are required.")
+        sys.exit(1)
+    
+    client = get_twilio_client(username=username, password=password)
+   
+    try:
+        conv_service_sid = get_conv_default_service(client)
+    except Exception as e:
+        print(f"Invalid username and password combination {e}")
+        sys.exit(1)
+
     workspace_sid = input("Enter TaskRouter Workspace SID: ")
-    save_profile(name, USERNAME=username, PASSWORD=password, WORKSPACE_SID=workspace_sid)
+    save_profile(name, USERNAME=username, PASSWORD=password, WORKSPACE_SID=workspace_sid, CONV_SERVICE_SID=conv_service_sid)
 
 def main():
 
