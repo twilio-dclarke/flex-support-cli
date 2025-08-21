@@ -81,7 +81,7 @@ flex-support-cli profiles --create-profile
 flex-support-cli profiles list
 ```
 
-**Export TaskRouter Details*
+**Export TaskRouter Details**
 ```bash
 flex-support-cli taskrouter --tr-queues --profile=PROFILE_NAME
 ```
