@@ -28,7 +28,7 @@ It centralizes authentication, report generation, and profile management into on
 Clone the repo and install with [pipx](https://pypa.github.io/pipx/) (recommended):
 
 ```bash
-git clone https://github.com/your-org/flex-support-cli.git
+git clone https://github.com/twilio-dclarke/flex-support-cli.git
 cd FlexSupportCli
 pipx install .
 ```
