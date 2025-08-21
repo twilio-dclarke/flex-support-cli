@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import os
 import sys
 import argparse
 from flex_support_cli.config import load_config, save_profile, list_profiles
@@ -63,10 +62,16 @@ def build_global_parser() -> argparse.ArgumentParser:
         "--token",
         help="Optional runtime token override (e.g., TWILIO_AUTH_TOKEN or API Secret).",
     )
+    g.add_argument(
+        "--version",
+        action="version",
+        version="flex-support-exporter 0.1.0"
+    )
     return g
 
 def build_parser(parent: argparse.ArgumentParser) -> argparse.ArgumentParser:
 
+    """"""
     p = argparse.ArgumentParser(
         prog="flex-support-cli",
         description="Flex Support CLI"
@@ -74,7 +79,8 @@ def build_parser(parent: argparse.ArgumentParser) -> argparse.ArgumentParser:
     
     sp = p.add_subparsers(dest="command", required=True)
 
-    profile_parser = sp.add_parser("profile", parents=[parent], help="Manage profiles")
+    """Profile management commands"""
+    profile_parser = sp.add_parser("profiles", parents=[parent], help="Manage profiles")
     profile_parser.add_argument(
         "--create-profile",
         action="store_true",
@@ -86,7 +92,7 @@ def build_parser(parent: argparse.ArgumentParser) -> argparse.ArgumentParser:
         help="Lists all profiles"
     )
 
-
+    """TaskRouter report generation commands"""
     tr_parser = sp.add_parser("taskrouter", parents=[parent], help="TaskRouter reports")
     tr_parser.add_argument(
         "-w", "--workspace-sid",
@@ -104,24 +110,6 @@ def build_parser(parent: argparse.ArgumentParser) -> argparse.ArgumentParser:
         action="store_true"
     )
 
-    parent.add_argument(
-        "-o", "--output",
-        default="task_queues.csv",
-        help="Output CSV path (default: task_queues.csv)"
-    )
-
-    parent.add_argument(
-        "-q", "--quiet",
-        action="store_true",
-        help="Suppress non-error output."
-    )
-    parent.add_argument(
-        "--version",
-        action="version",
-        version="taskrouter-exporter 0.1.0"
-    )
-   
-
     profile_parser.set_defaults(func=profile_command)
     tr_parser.set_defaults(func=taskrouter_command)
     
@@ -138,18 +126,23 @@ def create_profile():
 
 def main():
 
+    """Main entry point for the CLI."""
     gparser = build_global_parser()
     gargs, unknown = gparser.parse_known_args()
-    
+    parser = build_parser(gparser)
+    args = parser.parse_args()
+
+    """Set up the configuration based on the provided profile or token."""
     if gargs.profile and gargs.profile != "default" :
         cfg = load_config(profile=gargs.profile)
+    elif gargs.profile == "default" and args.command == "profiles":
+        cfg = load_config()
     elif gargs.profile == "default" and gargs.token == None:
         print("Using default profile requires a support token")
+        sys.exit(1)
     else:    
         cfg = load_config()
 
-    parser = build_parser(gparser)
-    args = parser.parse_args()
     args.cfg = cfg
 
     return args.func(args)
