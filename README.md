@@ -14,9 +14,8 @@ It centralizes authentication, report generation, and profile management into on
   `--profile`, `--token`, and `--profile-only` available across all commands.
 
 - **Reports (initial set)**  
-  - **Usage**: Daily totals, subaccount aggregation.  
-  - **Voice**: Call summaries.  
-  - **Messaging**: Delivery/error summaries.  
+  - **Taskrouter**: TaskRouter reports and helpers.  
+  - **Conversations**: Conversations reports and helpers.  
 
 - **Extensible architecture**  
   New reports can be added under `reports/` and wired into the CLI via subparsers.
